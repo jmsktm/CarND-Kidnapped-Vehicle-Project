@@ -30,8 +30,29 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    * NOTE: Consult particle_filter.h for more information about this method 
    *   (and others in this file).
    */
-  num_particles = 0;  // TODO: Set the number of particles
+  num_particles = 100;  // TODO: Set the number of particles
+  double std_x, std_y, std_theta;  // Standard deviations for x, y, and theta
 
+  // TODO: Set standard deviations for x, y, and theta
+  std_x = std[0];
+  std_y = std[1];
+  std_theta = std[2];
+  
+  std::default_random_engine gen;
+  std::normal_distribution<double> dist_x(x, std_x);
+  std::normal_distribution<double> dist_y(y, std_y);
+  std::normal_distribution<double> dist_theta(theta, std_theta);
+  
+  for (int i = 0; i < num_particles; i++) {
+    Particle p;
+    p.id = x + 1;
+    p.x = dist_x(gen);
+    p.y = dist_y(gen);
+    p.theta = dist_theta(gen);
+    p.weight = 1;
+    particles.push_back(p);
+  }
+  is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], 
@@ -43,7 +64,28 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    *  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
    *  http://www.cplusplus.com/reference/random/default_random_engine/
    */
+  double std_x, std_y, std_theta;  // Standard deviations for x, y, and theta
 
+  // TODO: Set standard deviations for x, y, and theta
+  std_x = std_pos[0];
+  std_y = std_pos[1];
+  std_theta = std_pos[2];
+  
+  std::default_random_engine gen;
+  std::normal_distribution<double> noise_x(0, std_x);
+  std::normal_distribution<double> noise_y(0, std_y);
+  std::normal_distribution<double> noise_theta(0, std_theta);
+  
+  yaw_rate = (yaw_rate > 0.001) ? yaw_rate : 0.001;
+  
+  for (int i = 0; i < num_particles; i++) {
+    Particle p = particles[i];
+    double factor = velocity / yaw_rate;
+    double theta_eff = p.theta + yaw_rate * delta_t;
+    p.x += factor * (sin(theta_eff) - sin(p.theta)) + noise_x(gen);
+    p.y += factor * (cos(p.theta) - cos(theta_eff)) + noise_y(gen);
+    p.theta = theta_eff + noise_theta(gen);
+  }
 }
 
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, 
