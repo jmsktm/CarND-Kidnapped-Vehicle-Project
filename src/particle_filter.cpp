@@ -132,7 +132,78 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
-
+  // calculate normalization term
+  double sig_x = std_landmark[0];
+  double sig_y = std_landmark[1];
+  double gauss_norm = 1 / (2 * M_PI * sig_x * sig_y);
+  
+  for (int i = 0; i < num_particles; i++) {
+    
+    //transform observations to MAP co-ordinate system
+    std::vector<LandmarkObs> transf_observations = observations;
+    
+    Particle particle = particles[i];
+    double xp = particle.x;
+    double yp = particle.y;
+    double theta = particle.theta;
+    
+    for (unsigned int j = 0; j < transf_observations.size(); j++) {
+      LandmarkObs observation = transf_observations[j];
+      double xc = observation.x;
+      double yc = observation.y;
+      
+      // Using Homogeneous Tranformation
+      double xm = xp + cos(theta) * xc - sin(theta) * yc;
+      double ym = yp + sin(theta) * xc + cos(theta) * yc;
+      
+      transf_observations[j].x = xm;
+      transf_observations[j].y = ym;
+    }
+    
+    // Constructing an array of landmarks that are within sensor range.
+    vector<LandmarkObs> landmarks;
+    for (unsigned int j = 0; j < map_landmarks.landmark_list.size(); j++) {
+      Map::single_landmark_s single_landmark = map_landmarks.landmark_list[i];
+      
+      double distance = dist(single_landmark.x_f, single_landmark.y_f, xp, yp);
+      if (distance <= sensor_range) {
+        LandmarkObs landmark;
+        landmark.id = single_landmark.id_i;
+        landmark.x = single_landmark.x_f;
+        landmark.y = single_landmark.y_f;
+        
+        landmarks.push_back(landmark);
+      }
+    }
+    
+    dataAssociation(landmarks, transf_observations);
+    
+    double weight = 1.0;
+    for (unsigned int j = 0; j < transf_observations.size(); j++) {
+      LandmarkObs observation = transf_observations[j];
+      double mu_x, mu_y = 0.0;
+      double x_obs = observation.x;
+      double y_obs = observation.y;
+      
+      for (unsigned int k = 0; k < landmarks.size(); k++) {
+        LandmarkObs landmark = landmarks[k];
+        if (observation.id == landmark.id) {
+          mu_x = landmark.x;
+          mu_y = landmark.y;
+        }
+      }
+      
+      // Calculate multivariate Gaussian Probability Distribution Function
+      double exponent = (pow(x_obs - mu_x, 2) / (2 * pow(sig_x, 2))) + (pow(y_obs - mu_y, 2) / (2 * pow(sig_y, 2)));
+      double prob = gauss_norm * exp(-exponent);
+      
+      if (prob > 0.0) {
+        weight *= prob;
+      }
+    }
+    weights.push_back(weight);
+    particles[i].weight = weight;
+  }
 }
 
 void ParticleFilter::resample() {
