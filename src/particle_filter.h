@@ -11,6 +11,7 @@
 
 #include <string>
 #include <vector>
+#include <random>
 #include "helper_functions.h"
 
 struct Particle {
@@ -67,6 +68,25 @@ class ParticleFilter {
                        std::vector<LandmarkObs>& observations);
   
   /**
+   * The observations are given in the VEHICLE's coordinate system. This method converts them
+   * to MAP's coordinate system using particle's coordinate which is in MAP's coordinate system.
+   */
+  std::vector<LandmarkObs> getObservationsInMapCoordinates(Particle particle,
+                    const std::vector<LandmarkObs>& observations);
+
+  /**
+   * Returns a vector of landmarks in range
+   */
+  std::vector<LandmarkObs> getLandmarksInRange(Particle particle, const Map &map_landmarks,
+                                  double sensor_range);
+
+  /**
+   * returns new weight based on Multivariate Gaussian pdf
+   */
+  double calculateWeight(std::vector<LandmarkObs> observations, std::vector<LandmarkObs> landmarks,
+                                    double std_landmarks[]);
+                                    
+  /**
    * updateWeights Updates the weights for each particle based on the likelihood
    *   of the observed measurements. 
    * @param sensor_range Range [m] of sensor
@@ -120,6 +140,8 @@ class ParticleFilter {
   
   // Vector of weights of all particles
   std::vector<double> weights; 
+
+  std::default_random_engine gen;
 };
 
 #endif  // PARTICLE_FILTER_H_
